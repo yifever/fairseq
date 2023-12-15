@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+import torch
 import torch.nn.functional as F
 
 
@@ -13,9 +14,11 @@ def pad_to_multiple(x, multiple, dim=-1, value=0):
         return None, 0
     tsz = x.size(dim)
     m = tsz / multiple
-    remainder = math.ceil(m) * multiple - tsz
-    if m.is_integer():
-        return x, 0
+
+    remainder = torch.ceil(m) * multiple - tsz
+    #remainder = math.ceil(m) * multiple - tsz
+    #if m.is_integer():
+    #    return x, 0
     pad_offset = (0,) * (-1 - dim) * 2
 
     return F.pad(x, (*pad_offset, 0, remainder), value=value), remainder

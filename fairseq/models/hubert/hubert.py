@@ -191,12 +191,6 @@ class HubertConfig(FairseqDataclass):
         default=16,
         metadata={"help": "number of groups for convolutional positional embedding"},
     )
-    conv_pos_batch_norm: bool = field(
-        default=False,
-        metadata={
-            "help": "use batch norm instead of weight norm in conv_pos (for bf16 models)"
-        },
-    )
 
     latent_temp: Tuple[float, float, float] = field(
         default=(2, 0.5, 0.999995),
@@ -394,6 +388,7 @@ class HubertModel(BaseFairseqModel):
         return logits
 
     def forward_features(self, source: torch.Tensor) -> torch.Tensor:
+        print('YIFEI', source)
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -423,9 +418,15 @@ class HubertModel(BaseFairseqModel):
         features: torch.Tensor,
         padding_mask: torch.Tensor,
     ) -> torch.Tensor:
+        '''
         extra = padding_mask.size(1) % features.size(1)
         if extra > 0:
             padding_mask = padding_mask[:, :-extra]
+        '''
+        cols_to_keep = padding_mask.size(1) - (padding_mask.size(1) % features.size(1))
+        # Use slicing to potentially trim the tensor; this works even if no trimming is needed
+        padding_mask = padding_mask[:, :cols_to_keep]
+
         padding_mask = padding_mask.view(padding_mask.size(0), features.size(1), -1)
         padding_mask = padding_mask.all(-1)
         return padding_mask
@@ -459,11 +460,13 @@ class HubertModel(BaseFairseqModel):
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
 
-        if mask:
-            x, mask_indices = self.apply_mask(features, padding_mask, target_list)
+        '''
+        print('YIFEI mask', mask)
+        x, mask_indices = self.apply_mask(features, padding_mask, target_list)
         else:
-            x = features
-            mask_indices = None
+        '''
+        x = features
+        mask_indices = None
 
         # feature: (B, T, D), float
         # target: (B, T), long
@@ -476,8 +479,8 @@ class HubertModel(BaseFairseqModel):
             layer=None if output_layer is None else output_layer - 1,
         )
 
-        if features_only:
-            return {"x": x, "padding_mask": padding_mask, "features": features}
+        #if features_only:
+        return {"x": x, "padding_mask": padding_mask, "features": features}
 
         def compute_pred(proj_x, target, label_embs):
             # compute logits for the i-th label set
